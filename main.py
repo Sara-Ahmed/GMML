@@ -3,6 +3,8 @@ IMAGENET_DEFAULT_STD = (0.229, 0.224, 0.225)
 
 
 import warnings
+
+from vae import VAERECHead, compute_gaussian_kl
 warnings.filterwarnings("ignore")
 
 import argparse
@@ -24,6 +26,7 @@ import torch.nn.functional as F
 import torchvision
 from torchvision import models as torchvision_models
 from numpy.random import randint
+import yaml
 
 from datasets import load_dataset, datasets_utils
 
@@ -56,7 +59,7 @@ def get_args_parser():
 
     # Dataset
     parser.add_argument('--data_set', default='Flowers', type=str, 
-                        choices=['MNIST', 'CIFAR10', 'CIFAR100', 'Flowers', 'Aircraft', 'Cars', 'ImageNet5p', 'ImageNet10p', 'ImageNet', 'TinyImageNet', 'PASCALVOC', 'MSCOCO', 'VGenome', 'Pets'], 
+                        choices=['MNIST', 'CIFAR10', 'CIFAR100', 'Flowers', 'Aircraft', 'Cars', 'ImageNet5p', 'ImageNet10p', 'ImageNet', 'TinyImageNet', 'PASCALVOC', 'MSCOCO', 'VGenome', 'Pets', 'ImageFolder'], 
                         help='Name of the dataset.')
     parser.add_argument('--data_location', default='.', type=str, help='Dataset location.')
 
@@ -88,6 +91,12 @@ def get_args_parser():
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
+    
+    # VAE
+    parser.add_argument("--vae_beta",type=float,default=1,help="Beta in BetaVAE.")
+    parser.add_argument("--vae",type=bool,action=argparse.BooleanOptionalAction,default=False)
+    
+    parser.add_argument("-c","--config", type=str,default='config.yml', help="Configuration file *.yml")
     return parser
 
 
@@ -114,7 +123,10 @@ def train_SiTv2(args):
     n_params = sum(p.numel() for p in SiT_model.parameters() if p.requires_grad)
     embed_dim = SiT_model.embed_dim
     
-    SiT_model = FullpiplineSiT(SiT_model, RECHead(embed_dim))
+    if args.vae:
+         SiT_model = FullpiplineSiT(SiT_model, VAERECHead(embed_dim))
+    else:
+        SiT_model = FullpiplineSiT(SiT_model, RECHead(embed_dim))
     SiT_model = SiT_model.cuda()
         
     SiT_model = nn.parallel.DistributedDataParallel(SiT_model, device_ids=[args.gpu])
@@ -192,15 +204,21 @@ def train_one_epoch(SiT_model, data_loader, optimizer, lr_schedule, wd_schedule,
         masks_crops = [im.cuda(non_blocking=True) for im in masks_crops]
         
         if args.drop_replace > 0:
-            corrupted_crops, masks_crops = datasets_utils.GMML_replace_list(clean_crops, corrupted_crops, masks_crops, drop_type=args.drop_type,
-                                                                            max_replace=args.drop_replace, align=args.drop_align)
+            corrupted_crops, masks_crops = datasets_utils.GMML_replace_list(
+                clean_crops, corrupted_crops, masks_crops, drop_type=args.drop_type,
+                max_replace=args.drop_replace, align=args.drop_align)
         
         with torch.cuda.amp.autocast(fp16_scaler is not None):
-            s_recons_g, s_recons_l = SiT_model(corrupted_crops, recons_blocks=args.recons_blocks)
+            s_recons_g, s_recons_l, rest = SiT_model(corrupted_crops, recons_blocks=args.recons_blocks)
             
             #-------------------------------------------------
             recloss = F.l1_loss(s_recons_g, torch.cat(clean_crops[0:2]), reduction='none')
             loss = recloss[torch.cat(masks_crops[0:2])==1].mean() if (args.drop_only == 1) else recloss.mean()
+            if args.vae:
+                z, (mu,logvar) = rest
+                kl = compute_gaussian_kl(mu, logvar)
+                kl_loss = kl.sum(-1).mean()
+                loss = loss + args.vae_beta * kl_loss
                 
             if len(clean_crops) > 2:
                 recloss = F.l1_loss(s_recons_l, torch.cat(clean_crops[2:]), reduction='none') 
@@ -265,18 +283,30 @@ class FullpiplineSiT(nn.Module):
     def forward(self, x, global_crops=2, recons_blocks='6-8-10-12'):  
         
         # global output
-        output_recons_global = self.head_recons( self.backbone(torch.cat(x[0:global_crops]), recons_blocks=recons_blocks) )
+        res = self.head_recons( self.backbone(torch.cat(x[0:global_crops]), recons_blocks=recons_blocks) )
+        if len(res)>1:
+            output_recons_global, rest = res[0], res[1:]
+        else:
+            output_recons_global, rest = res[0], None
         
         # local_output
         output_recons_local = None  
         if (len(x) > global_crops):
             output_recons_local = self.head_recons( self.backbone(torch.cat(x[global_crops:]), recons_blocks=recons_blocks) )
         
-        return output_recons_global, output_recons_local
+        return output_recons_global, output_recons_local, rest
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('SiTv2', parents=[get_args_parser()])
     args = parser.parse_args()
+    if args.config and os.path.exists(args.config):
+        opt = yaml.load(open(args.config), Loader=yaml.FullLoader)
+        args.__dict__.update(opt)
+        print('waring: args are overrided by config file.')
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    with open(os.path.join(args.output_dir,'config.yml'), 'w') as outfile:
+        yaml.dump(vars(args), outfile)
+    with open(os.path.join(args.output_dir,'env.yml'), 'w') as outfile:
+        yaml.dump(dict(os.environ.items()), outfile)
     train_SiTv2(args)

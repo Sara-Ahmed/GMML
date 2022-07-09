@@ -3,14 +3,14 @@ import os
 from datasets.TinyImageNet import TinyImageNetDataset
 from datasets.CIFAR import CIFAR10, CIFAR100
 from datasets.STL10 import STL10
-from datasets.ImageNet import ImageNetDataset
-from datasets.VisualGenome import VisualGenomeDataset
-from datasets.VisualGenome500 import VisualGenomeDataset500
+# from datasets.ImageNet import ImageNetDataset
+# from datasets.VisualGenome import VisualGenomeDataset
+# from datasets.VisualGenome500 import VisualGenomeDataset500
 from datasets.Cars_stanford import Cars
 from datasets.Flowers_stanford import Flowers
-from datasets.PASCALVOC import VocDataset
-from datasets.MSCOCO import MSCOCO80Dataset
-from datasets.MRNet import MRNetDataset
+# from datasets.PASCALVOC import VocDataset
+# from datasets.MSCOCO import MSCOCO80Dataset
+# from datasets.MRNet import MRNetDataset
 from datasets.AirCraft import Aircraft
 from datasets.CUB import Cub2011
 from datasets.Pets import pets
@@ -175,8 +175,12 @@ def build_dataset(args, is_train, trnsfrm=None, training_mode='finetune'):
         dataset = MSCOCO80Dataset(is_train, main_root, transform=trnsfrm)
 
         nb_classes = 80
-
-        
+    
+    elif args.data_set == 'ImageFolder':
+        dataset = torchvision.datasets.ImageFolder(args.data_location, transform=trnsfrm)
+        nb_classes = len(dataset.classes)        
+    else:
+        raise NotImplementedError(args.data_set)
         
     return dataset, nb_classes
 

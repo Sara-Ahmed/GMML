@@ -285,8 +285,9 @@ class RECHead(nn.Module):
         self.mlp = nn.Sequential(*layers)
         self.apply(self._init_weights)
         
-        self.convTrans = nn.ConvTranspose2d(in_dim, in_chans, kernel_size=(patch_size, patch_size), 
-                                                stride=(patch_size, patch_size))
+        self.convTrans = nn.ConvTranspose2d(in_dim, in_chans, 
+                            kernel_size=(patch_size, patch_size), 
+                            stride=(patch_size, patch_size))
 
 
     def _init_weights(self, m):
@@ -303,4 +304,4 @@ class RECHead(nn.Module):
         x_rec = self.convTrans(x_rec.unflatten(2, out_sz))
                 
                 
-        return x_rec
+        return x_rec,

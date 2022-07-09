@@ -94,6 +94,20 @@ class Solarization(object):
         
         
 def GMML_replace_list(samples, corrup_prev, masks_prev, drop_type='noise', max_replace=0.35, align=16):
+    """GMML manipulates randomly groups of connected tokens.
+
+    Args:
+        samples (list(Tensor)): original images with [(batch,channel,H,W)]
+        corrup_prev (list(Tensor)): augmented images with [(batch,channel,H,W)]
+        masks_prev (list(Tensor)):  masks with [(batch,channel,H,W)], 0 or 1
+        drop_type (str, optional): _description_. Defaults to 'noise'.
+        max_replace (float, optional): _description_. Defaults to 0.35.
+        align (int, optional): patch size. Defaults to 16.
+
+    Returns:
+        aug_all (Tensor):
+        masks_all (Tensor): mask, 0 or 1
+    """    
     if not isinstance(samples, list):
         samples = [samples]
         
@@ -102,13 +116,14 @@ def GMML_replace_list(samples, corrup_prev, masks_prev, drop_type='noise', max_r
     n_imgs = samples[0].size()[0] #this is batch size, but in case bad inistance happened while loading
     masks_all = []
     aug_all = []
+    #TODO: can be optimized
     for si, s in enumerate(samples):
         samples_aug = s.detach().clone()
         masks = torch.zeros_like(samples_aug)
         for i in range(n_imgs):
             idx_rnd = randint(0, n_imgs)
             if random.random() < rep_drop: 
-                samples_aug[i], masks[i] = GMML_drop_rand_patches(samples_aug[i], samples[si][idx_rnd], max_replace=max_replace, align=align)
+                samples_aug[i], masks[i] = GMML_drop_rand_patches(samples_aug[i], samples[si][idx_rnd], drop_type=drop_type, max_replace=max_replace, align=align)
             else:
                 samples_aug[i], masks[i] = corrup_prev[si][i], masks_prev[si][i]
         #samples[si] = samples_aug
@@ -224,6 +239,13 @@ class DataAugmentationSiT(object):
             Solarization(0.2),
             normalize,
         ])
+        
+    def __repr__(self) -> str:
+        keys = ['rand_resize_flip','clean_transfo', 'drop_perc','drop_type','drop_align','local_crops_number']
+        args= ",\n".join([k+"="+str(self.__dict__[k]) for k in keys])
+        return ("DataAugmentationSiT(\n" +
+                args +
+                ")")
 
     def __call__(self, image):
 

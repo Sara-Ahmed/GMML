@@ -6,22 +6,19 @@ This repository contains the official PyTorch self-supervised pretraining, finet
 
 # Usage
 - Create an environment
-> conda create -n GMML python=3.8
+> conda create -n GMML python
 - Activate the environment and install the necessary packages
 > conda activate GMML
 
-> conda install pytorch torchvision torchaudio cudatoolkit=11.0 -c pytorch
+> conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
 
 > pip install -r requirements.txt
 
 
 # Self-supervised pre-training
-> python -m torch.distributed.launch --nproc_per_node=4 --use_env main.py --batch-size 64 --epochs 801 
+> python -m torch.distributed.launch --nproc_per_node=4 --use_env main.py 
 
 Self-supervised pre-trained models using GMML can be downloaded from [here (soon)]
-
-# Finetuning
-> python -m torch.distributed.launch --nproc_per_node=4 --use_env main.py  --batch-size 64 --epochs 801 
 
 **Note: assign the --dataset_location parameter to the location of the downloaded dataset**
 

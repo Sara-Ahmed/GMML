@@ -40,7 +40,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('SiTv2', add_help=False)
 
     # Model parameters
-    parser.add_argument('--model', default='vit_tiny', type=str, choices=['vit_tiny', 'vit_small', 'vit_base'], help="Name of architecture to train.")
+    parser.add_argument('--model', default='vit_small', type=str, choices=['vit_tiny', 'vit_small', 'vit_base'], help="Name of architecture to train.")
     parser.add_argument('--img_size', default=224, type=int, help="Input size to the Transformer.")
     
     # Reconstruction parameters
@@ -55,13 +55,13 @@ def get_args_parser():
     parser.add_argument('--drop_only', type=int, default=1, help='Align drop with patches')
 
     # Dataset
-    parser.add_argument('--data_set', default='Flowers', type=str, 
+    parser.add_argument('--data_set', default='Cars', type=str, 
                         choices=['MNIST', 'CIFAR10', 'CIFAR100', 'Flowers', 'Aircraft', 'Cars', 'ImageNet5p', 'ImageNet10p', 'ImageNet', 'TinyImageNet', 'PASCALVOC', 'MSCOCO', 'VGenome', 'Pets'], 
                         help='Name of the dataset.')
     parser.add_argument('--data_location', default='.', type=str, help='Dataset location.')
 
     # Hyper-parameters
-    parser.add_argument('--batch_size', default=48, type=int, help="Batch size per GPU.")
+    parser.add_argument('--batch_size', default=64, type=int, help="Batch size per GPU.")
     parser.add_argument('--epochs', default=800, type=int, help="Number of epochs of training.")
     
     parser.add_argument('--weight_decay', type=float, default=0.04, help="weight decay")
@@ -75,13 +75,13 @@ def get_args_parser():
     parser.add_argument('--clip_grad', type=float, default=3.0, help="Maximal parameter gradient norm.")
     parser.add_argument("--warmup_epochs", default=10, type=int, help="Number of epochs for the linear learning-rate warm up.")
 
-    # Multi-crop parameters  ---- Not needed for SiT (just to match number of updates to SOTA methods)
+    # Multi-crop parameters  ---- Not needed for GMML (just to match number of updates to SOTA methods)
     parser.add_argument('--global_crops_scale', type=float, nargs='+', default=(0.25, 1.), help="Scale range of global crops")
     parser.add_argument('--local_crops_number', type=int, default=0, help="Number of local crops.")
     parser.add_argument('--local_crops_scale', type=float, nargs='+', default=(0.05, 0.4), help="Scale range of local crops")
     
     # Misc
-    parser.add_argument('--output_dir', default="checkpoints/Flowers_noise_zeros", type=str, help='Path to save logs and checkpoints.')
+    parser.add_argument('--output_dir', default="checkpoints/Cars", type=str, help='Path to save logs and checkpoints.')
     parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=10, type=int, help='Number of data loading workers per GPU.')

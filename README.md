@@ -11,6 +11,7 @@ This repository contains the official PyTorch self-supervised pretraining, finet
 > conda activate GMML
 
 > conda install pytorch torchvision torchaudio cudatoolkit=11.3 -c pytorch
+> 
 > pip install timm # and any other required packages
 
 
